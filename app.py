@@ -43,6 +43,9 @@ _LOGO_PNG = os.path.join(_IMAGES_DIR, "logo.png")
 DEFAULT_USER = "admin"
 DEFAULT_PASS = "macromaq2026"
 
+# Trial (dias de teste gratuito)
+TRIAL_DIAS = 15
+
 # Asaas
 # --- LEITURA SEGURA DA API KEY DO ASAAS ---
 try:
@@ -125,6 +128,25 @@ def _restaurar_senha_padrao(usuario: str) -> None:
     _salvar_usuarios(usuarios)
 
 
+def _dias_desde_cadastro(usuario: str) -> int:
+    """Retorna quantos dias se passaram desde o cadastro do usuário."""
+    usuarios = _carregar_usuarios()
+    user_data = usuarios.get(usuario, {})
+    criado_str = user_data.get("criado_em", "")
+    if not criado_str:
+        return 999  # sem data = assume fora do trial
+    try:
+        criado = datetime.fromisoformat(criado_str)
+        return (datetime.now() - criado).days
+    except Exception:
+        return 999
+
+
+def _dentro_do_trial(usuario: str) -> bool:
+    """Retorna True se o usuário ainda está no período de trial gratuito."""
+    return _dias_desde_cadastro(usuario) < TRIAL_DIAS
+
+
 # ==========================================================================
 # INTEGRAÇÃO ASAAS
 # ==========================================================================
@@ -153,8 +175,9 @@ def _asaas_get(endpoint: str, params: dict | None = None) -> dict:
 def verificar_adimplencia(cpf_cnpj: str = "", email: str = "") -> dict:
     """Verifica se o cliente está adimplente na plataforma.
 
-    Estratégia: busca pagamentos recentes e verifica se há pelo menos
-    um com status RECEIVED ou CONFIRMED.
+    VALIDAÇÃO ESTRITA: só libera acesso se a API do Asaas retornar
+    pelo menos uma fatura com status RECEIVED ou CONFIRMED.
+    Sem tolerância de trial, sem fallback de acesso.
 
     Returns
     -------
@@ -165,11 +188,12 @@ def verificar_adimplencia(cpf_cnpj: str = "", email: str = "") -> dict:
         link_pagamento: str | None (URL do boleto/Pix mais recente)
     """
     if not ASAAS_API_KEY:
-        # Sem chave configurada = acesso liberado (modo dev)
+        # Sem chave configurada = BLOQUEIA acesso
         return {
-            "adimplente": True,
-            "status": "DEV_MODE",
-            "mensagem": "",
+            "adimplente": False,
+            "status": "API_KEY_NAO_CONFIGURADA",
+            "mensagem": "Erro de configuração do sistema de pagamento. "
+                        "Entre em contato com o administrador.",
             "link_pagamento": None,
         }
 
@@ -177,18 +201,19 @@ def verificar_adimplencia(cpf_cnpj: str = "", email: str = "") -> dict:
     pagamentos = _asaas_get("payments", {"limit": "50", "order": "desc"})
 
     if not pagamentos or "data" not in pagamentos:
-        # Sem resposta da API = assume adimplente (evita bloqueio indevido)
+        # Sem resposta da API = BLOQUEIA acesso
         return {
-            "adimplente": True,
-            "status": "API_OFF",
-            "mensagem": "",
+            "adimplente": False,
+            "status": "API_INDISPONIVEL",
+            "mensagem": "Não foi possível verificar seu status financeiro no momento. "
+                        "Tente novamente em alguns instantes.",
             "link_pagamento": None,
         }
 
     data = pagamentos.get("data", [])
 
-    # Status que comprovam adimplência
-    status_pagos = {"RECEIVED", "CONFIRMED", "RECEIVED_IN_CASH", "CREDIT_CARD_SETTLED"}
+    # Únicos status que comprovam adimplência
+    status_pagos = {"RECEIVED", "CONFIRMED"}
 
     # Verifica se há pelo menos um pagamento pago
     tem_pago = any(p.get("status") in status_pagos for p in data)
@@ -210,7 +235,6 @@ def verificar_adimplencia(cpf_cnpj: str = "", email: str = "") -> dict:
     for p in data:
         if p.get("status") in status_bloqueio:
             status_atual = p["status"]
-            # Tenta o link de cobrança (invoiceUrl, bankSlipUrl ou pixUrl)
             link = (
                 p.get("invoiceUrl")
                 or p.get("bankSlipUrl")
@@ -567,8 +591,20 @@ def tela_portal() -> None:
         else '<span style="font-size:2.5rem;">🛡️</span>'
     )
 
-    # Header com botão de logout
+    # Header com botão de logout + indicador de trial
     usuario = st.session_state.get("usuario", "")
+    dias_trial = _dias_desde_cadastro(usuario)
+    dias_restantes = max(0, TRIAL_DIAS - dias_trial)
+    no_trial = dias_restantes > 0
+
+    trial_badge = ""
+    if no_trial:
+        trial_badge = (
+            f'<span style="display:inline-block; background:rgba(16,185,129,0.15); '
+            f'color:#10b981; padding:4px 12px; border-radius:20px; font-size:0.7rem; '
+            f'font-weight:600; margin-top:4px;">🟢 Trial: {dias_restantes} dia(s) restante(s)</span>'
+        )
+
     st.markdown(
         f"""
         <div class="portal-header">
@@ -579,6 +615,7 @@ def tela_portal() -> None:
             </div>
             <div style="text-align:right;">
                 <span style="color:#64748b; font-size:0.75rem;">👤 {usuario}</span><br>
+                {trial_badge}
                 <form action="" method="get" style="display:inline;">
                     <button type="submit" class="logout-btn" style="cursor:pointer;"
                      onclick="window.parent.location.reload();">🚪 Sair</button>
@@ -599,20 +636,6 @@ def tela_portal() -> None:
 
     # Container principal
     st.markdown('<div style="max-width:1100px; margin:0 auto; padding:0 20px 80px;">', unsafe_allow_html=True)
-
-    # Barra do plano
-    st.markdown(
-        """
-        <div class="plano-bar">
-            <span class="plano-valor">💳 Plano Único: R$ 590/mês</span>
-            &nbsp;·&nbsp;
-            <span style="color:#94a3b8;">Sem taxa de implantação</span>
-            &nbsp;·&nbsp;
-            <span style="color:#34d399;">7 dias de trial</span>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
 
     # 3 Cards
     col1, col2, col3 = st.columns(3, gap="medium")
@@ -702,16 +725,28 @@ def main() -> None:
         st.stop()
 
     # ======================================================================
-    # PASSO 3 — Autenticado + senha própria → verifica Asaas
+    # PASSO 3 — Trial de 15 dias
     # ======================================================================
-    resultado = verificar_adimplencia()
+    usuario = st.session_state.get("usuario", "")
+    dias_trial = _dias_desde_cadastro(usuario)
+    no_trial = _dentro_do_trial(usuario)
 
-    if resultado["adimplente"]:
+    # ======================================================================
+    # PASSO 4 — Se fora do trial, verifica Asaas (estrito)
+    # ======================================================================
+    if no_trial:
+        # Dentro do trial: acesso liberado
         st.session_state["adimplente"] = True
         tela_portal()
     else:
-        st.session_state["adimplente"] = False
-        tela_bloqueio(resultado)
+        # Fora do trial: validação estrita via Asaas
+        resultado = verificar_adimplencia()
+        if resultado["adimplente"]:
+            st.session_state["adimplente"] = True
+            tela_portal()
+        else:
+            st.session_state["adimplente"] = False
+            tela_bloqueio(resultado)
 
 
 if __name__ == "__main__":
