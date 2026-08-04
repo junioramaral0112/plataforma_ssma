@@ -1,0 +1,40 @@
+# Dependências
+__pycache__/
+*.pyc
+*.pyo
+
+# Ambiente virtual
+venv/
+.venv/
+env/
+.env
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Dados locais (não versionar)
+data/historico_agendados.json
+data/*.json
+
+# Templates (arquivos grandes/binários)
+assets/templates/*.docx
+assets/templates/*.pptx
+assets/templates/*.xlsx
+
+# Imagens originais
+assets/images/*.png
+assets/images/*.jpg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+.DS_Store
+Desktop.ini
+
+# Logs
+*.log
