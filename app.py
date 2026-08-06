@@ -4,7 +4,7 @@ Portal Central SSMA Macromaq — Launcher com Autenticação
 - Login com senha padrão + troca obrigatória no primeiro acesso
 - Validação financeira via API do Asaas (bloqueio por inadimplência)
 - "Esqueci minha senha" para restaurar senha padrão
-- Portal com 3 cards de acesso aos módulos (visível só se adimplente)
+- Portal com 4 cards de acesso aos módulos (visível só se adimplente)
 - Múltiplos acessos simultâneos permitidos
 """
 
@@ -58,6 +58,7 @@ ASAAS_BASE_URL = "https://api.asaas.com/v3"
 URL_ASO = "https://aso-gendamento.streamlit.app/"
 URL_DOCS = "https://automacaodoc-macromaq.streamlit.app/"
 URL_APR = "https://aprmacromaq.streamlit.app/"
+URL_AUDIT = "https://riscos.streamlit.app/"
 
 
 # ==========================================================================
@@ -284,22 +285,16 @@ def _injetar_css(modo: str = "login") -> None:
     else:
         fundo_css = "background: linear-gradient(135deg, #0f172a, #1e293b);"
 
-    logo_tag = (
-        f'<img src="data:image/png;base64,{b64_logo}" style="height:55px; width:auto;" alt="Logo">'
-        if b64_logo
-        else '<span style="font-size:2.5rem;">🛡️</span>'
-    )
-
     st.markdown(
         f"""
         <style>
         [data-testid="stSidebar"],
         [data-testid="stSidebarNav"],
-        [data-testid="collapsedControl"]       {{ display: none !important; }}
+        [data-testid="collapsedControl"]        {{ display: none !important; }}
         header[data-testid="stHeader"]         {{ display: none !important; }}
 
         /* Força conteúdo a ocupar 100% da tela */
-        section[data-testid="stSidebar"]       {{ display: none !important; }}
+        section[data-testid="stSidebar"]        {{ display: none !important; }}
         div[data-testid="stAppViewContainer"]  {{ max-width: 100vw !important; padding: 0 !important; }}
         .stMainBlockContainer                  {{ max-width: 100% !important; padding-top: 1rem !important; }}
         .stApp {{ {fundo_css} }}
@@ -317,18 +312,18 @@ def _injetar_css(modo: str = "login") -> None:
         /* Cards */
         .card {{
             background: rgba(255,255,255,0.95); backdrop-filter: blur(8px);
-            border-radius: 16px; padding: 30px 22px; text-align: center;
+            border-radius: 16px; padding: 26px 18px; text-align: center;
             box-shadow: 0 4px 20px rgba(0,0,0,0.15); transition: all 0.3s;
             height: 100%; display: flex; flex-direction: column; justify-content: space-between;
         }}
         .card:hover {{ transform: translateY(-6px); box-shadow: 0 12px 32px rgba(0,0,0,0.3); }}
-        .card-icon {{ font-size: 3rem; margin-bottom: 10px; display: block; }}
-        .card h3 {{ font-size: 1.2rem; font-weight: 700; color: #1e293b; margin: 0 0 8px; }}
-        .card p {{ font-size: 0.85rem; color: #64748b; line-height: 1.5; margin: 0 0 18px; flex-grow: 1; }}
+        .card-icon {{ font-size: 2.8rem; margin-bottom: 10px; display: block; }}
+        .card h3 {{ font-size: 1.1rem; font-weight: 700; color: #1e293b; margin: 0 0 8px; }}
+        .card p {{ font-size: 0.8rem; color: #64748b; line-height: 1.45; margin: 0 0 16px; flex-grow: 1; }}
 
         .card-btn {{
-            display: inline-block; padding: 11px 26px; border-radius: 10px;
-            font-weight: 700; font-size: 0.9rem; text-decoration: none; transition: all 0.2s;
+            display: inline-block; padding: 10px 20px; border-radius: 10px;
+            font-weight: 700; font-size: 0.85rem; text-decoration: none; transition: all 0.2s;
         }}
         .card-btn:hover {{ transform: scale(1.04); }}
         .btn-aso {{ background: linear-gradient(135deg,#3b82f6,#2563eb); color: white; box-shadow: 0 4px 12px rgba(59,130,246,0.4); }}
@@ -337,6 +332,8 @@ def _injetar_css(modo: str = "login") -> None:
         .btn-docs:hover {{ box-shadow: 0 6px 18px rgba(16,185,129,0.55); color: white; text-decoration: none; }}
         .btn-apr {{ background: linear-gradient(135deg,#f59e0b,#d97706); color: #1e293b; box-shadow: 0 4px 12px rgba(245,158,11,0.4); }}
         .btn-apr:hover {{ box-shadow: 0 6px 18px rgba(245,158,11,0.55); color: #1e293b; text-decoration: none; }}
+        .btn-audit {{ background: linear-gradient(135deg,#8b5cf6,#6d28d9); color: white; box-shadow: 0 4px 12px rgba(139,92,246,0.4); }}
+        .btn-audit:hover {{ box-shadow: 0 6px 18px rgba(139,92,246,0.55); color: white; text-decoration: none; }}
 
         /* Footer fixo */
         .portal-footer {{
@@ -578,10 +575,10 @@ def tela_bloqueio(resultado: dict) -> None:
 
 
 # ==========================================================================
-# TELA PRINCIPAL — PORTAL (3 cards)
+# TELA PRINCIPAL — PORTAL (4 cards)
 # ==========================================================================
 def tela_portal() -> None:
-    """Portal principal com 3 cards de acesso."""
+    """Portal principal com 4 cards de acesso."""
     _injetar_css("portal")
 
     b64_logo = _para_base64(_LOGO_PNG)
@@ -616,10 +613,6 @@ def tela_portal() -> None:
             <div style="text-align:right;">
                 <span style="color:#64748b; font-size:0.75rem;">👤 {usuario}</span><br>
                 {trial_badge}
-                <form action="" method="get" style="display:inline;">
-                    <button type="submit" class="logout-btn" style="cursor:pointer;"
-                     onclick="window.parent.location.reload();">🚪 Sair</button>
-                </form>
             </div>
         </div>
         """,
@@ -635,10 +628,10 @@ def tela_portal() -> None:
             st.rerun()
 
     # Container principal
-    st.markdown('<div style="max-width:1100px; margin:0 auto; padding:0 20px 80px;">', unsafe_allow_html=True)
+    st.markdown('<div style="max-width:1250px; margin:0 auto; padding:0 20px 80px;">', unsafe_allow_html=True)
 
-    # 3 Cards
-    col1, col2, col3 = st.columns(3, gap="medium")
+    # 4 Cards ajustados em colunas
+    col1, col2, col3, col4 = st.columns(4, gap="medium")
 
     with col1:
         st.markdown(
@@ -680,6 +673,21 @@ def tela_portal() -> None:
                     <p>Elaboração de Análises Preliminares de Tarefa baseadas no banco unificado.</p>
                 </div>
                 <a href="{URL_APR}" target="_blank" class="card-btn btn-apr">Acessar Sistema →</a>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with col4:
+        st.markdown(
+            f"""
+            <div class="card">
+                <div>
+                    <span class="card-icon">📊</span>
+                    <h3>AuditGuard SST</h3>
+                    <p>Auditoria inteligente e gerenciamento avançado de riscos e conformidade em SST.</p>
+                </div>
+                <a href="{URL_AUDIT}" target="_blank" class="card-btn btn-audit">Acessar Sistema →</a>
             </div>
             """,
             unsafe_allow_html=True,
