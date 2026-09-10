@@ -28,7 +28,7 @@ _FUNDO_JPG = os.path.join(_IMAGES_DIR, "fundo.jpg")
 _LOGO_PNG = os.path.join(_IMAGES_DIR, "logo.png")
 
 DEFAULT_USER = "macrossma"
-DEFAULT_PASS = "12345678"
+DEFAULT_PASS = "macromaq2026"  # Senha padrão correta
 TRIAL_DIAS = 15
 
 ASAAS_API_KEY = st.secrets.get("ASAAS_API_KEY", os.getenv("ASAAS_API_KEY", ""))
@@ -40,14 +40,13 @@ URL_APR = "https://aprmacromaq.streamlit.app/"
 URL_AUDIT = "https://riscos.streamlit.app/"
 
 # ==========================================================================
-# FUNÇÕES DE USUÁRIO (COM RESET FORÇADO SE O ARQUIVO ESTIVER ANTIGO)
+# FUNÇÕES DE USUÁRIO (FORÇANDO ATUALIZAÇÃO DO JSON SE NECESSÁRIO)
 # ==========================================================================
 def _hash_senha(senha: str) -> str: 
     return hashlib.sha256(senha.encode("utf-8")).hexdigest()
 
 def _carregar_usuarios() -> dict:
     os.makedirs(_DATA_DIR, exist_ok=True)
-    # Se o arquivo não existir ou se quisermos garantir que o usuário padrão está correto:
     default_data = {
         DEFAULT_USER: {
             "senha_hash": _hash_senha(DEFAULT_PASS),
@@ -55,6 +54,7 @@ def _carregar_usuarios() -> dict:
             "criado_em": datetime.now().isoformat(),
         }
     }
+    
     if not os.path.exists(_USERS_FILE):
         _salvar_usuarios(default_data)
         return default_data
@@ -62,7 +62,7 @@ def _carregar_usuarios() -> dict:
     try:
         with open(_USERS_FILE, "r", encoding="utf-8") as f: 
             data = json.load(f)
-            # Garante que o usuário macrossma existe no json carregado
+            # Se o usuário macrossma não existe ou a estrutura mudou, força o padrão
             if DEFAULT_USER not in data:
                 data.update(default_data)
                 _salvar_usuarios(data)
