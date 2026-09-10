@@ -28,7 +28,7 @@ _FUNDO_JPG = os.path.join(_IMAGES_DIR, "fundo.jpg")
 _LOGO_PNG = os.path.join(_IMAGES_DIR, "logo.png")
 
 DEFAULT_USER = "macrossma"
-DEFAULT_PASS = "macromaq2026"
+DEFAULT_PASS = "12345678"
 TRIAL_DIAS = 15
 
 ASAAS_API_KEY = st.secrets.get("ASAAS_API_KEY", os.getenv("ASAAS_API_KEY", ""))
