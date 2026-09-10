@@ -28,7 +28,7 @@ _FUNDO_JPG = os.path.join(_IMAGES_DIR, "fundo.jpg")
 _LOGO_PNG = os.path.join(_IMAGES_DIR, "logo.png")
 
 DEFAULT_USER = "macrossma"
-DEFAULT_PASS = "macromaq2026"  # Senha padrão correta
+DEFAULT_PASS = "macromaq2026"
 TRIAL_DIAS = 15
 
 ASAAS_API_KEY = st.secrets.get("ASAAS_API_KEY", os.getenv("ASAAS_API_KEY", ""))
@@ -40,7 +40,7 @@ URL_APR = "https://aprmacromaq.streamlit.app/"
 URL_AUDIT = "https://riscos.streamlit.app/"
 
 # ==========================================================================
-# FUNÇÕES DE USUÁRIO (FORÇANDO ATUALIZAÇÃO DO JSON SE NECESSÁRIO)
+# FUNÇÕES DE USUÁRIO (SENHA PADRÃO FIXADA COMO FALSE PARA NUNCA PEDIR TROCA)
 # ==========================================================================
 def _hash_senha(senha: str) -> str: 
     return hashlib.sha256(senha.encode("utf-8")).hexdigest()
@@ -50,7 +50,7 @@ def _carregar_usuarios() -> dict:
     default_data = {
         DEFAULT_USER: {
             "senha_hash": _hash_senha(DEFAULT_PASS),
-            "senha_padrao": True,
+            "senha_padrao": False,  # <-- Alterado para False para nunca exigir troca
             "criado_em": datetime.now().isoformat(),
         }
     }
@@ -62,9 +62,12 @@ def _carregar_usuarios() -> dict:
     try:
         with open(_USERS_FILE, "r", encoding="utf-8") as f: 
             data = json.load(f)
-            # Se o usuário macrossma não existe ou a estrutura mudou, força o padrão
             if DEFAULT_USER not in data:
                 data.update(default_data)
+                _salvar_usuarios(data)
+            else:
+                # Garante que mesmo se o arquivo já existir, a trava de troca seja desativada
+                data[DEFAULT_USER]["senha_padrao"] = False
                 _salvar_usuarios(data)
             return data
     except:
@@ -80,13 +83,6 @@ def _verificar_senha(usuario: str, senha: str) -> bool:
     usuarios = _carregar_usuarios()
     user_data = usuarios.get(usuario)
     return user_data["senha_hash"] == _hash_senha(senha) if user_data else False
-
-def _alterar_senha(usuario: str, nova_senha: str) -> None:
-    usuarios = _carregar_usuarios()
-    if usuario in usuarios:
-        usuarios[usuario]["senha_hash"] = _hash_senha(nova_senha)
-        usuarios[usuario]["senha_padrao"] = False
-        _salvar_usuarios(usuarios)
 
 def _dias_desde_cadastro(usuario: str) -> int:
     usuarios = _carregar_usuarios()
@@ -183,38 +179,9 @@ def tela_login():
             if _verificar_senha(user.strip(), pw):
                 st.session_state.autenticado = True
                 st.session_state.usuario = user.strip()
-                st.session_state.senha_padrao = _carregar_usuarios()[user.strip()].get("senha_padrao", True)
                 st.rerun()
             else:
                 st.error("Usuário ou senha inválidos.")
-
-    st.markdown('</div></div>', unsafe_allow_html=True)
-
-def tela_trocar_senha():
-    _injetar_css()
-    st.markdown("""
-        <div class="login-container">
-            <div class="login-box">
-                <span style="font-size:3rem;">🔐</span>
-                <h2>Troca de Senha Obrigatória</h2>
-                <p style="color:#64748b; font-size:0.85rem; margin-bottom:20px;">Defina uma nova senha pessoal para continuar.</p>
-    """, unsafe_allow_html=True)
-
-    with st.form("form_troca"):
-        nova = st.text_input("Nova Senha", type="password")
-        confirmar = st.text_input("Confirmar Nova Senha", type="password")
-        submitted = st.form_submit_button("💾 Salvar Nova Senha", use_container_width=True, type="primary")
-
-        if submitted:
-            if not nova or len(nova) < 6:
-                st.error("A senha deve ter pelo menos 6 caracteres.")
-            elif nova != confirmar:
-                st.error("As senhas não conferem.")
-            else:
-                _alterar_senha(st.session_state.usuario, nova)
-                st.session_state.senha_padrao = False
-                st.success("✅ Senha alterada com sucesso!")
-                st.rerun()
 
     st.markdown('</div></div>', unsafe_allow_html=True)
 
@@ -254,12 +221,9 @@ def tela_portal():
 def main():
     if "autenticado" not in st.session_state:
         st.session_state.autenticado = False
-        st.session_state.senha_padrao = True
 
     if not st.session_state.autenticado:
         tela_login()
-    elif st.session_state.senha_padrao:
-        tela_trocar_senha()
     else:
         if _dias_desde_cadastro(st.session_state.usuario) < TRIAL_DIAS or verificar_adimplencia().get("adimplente"):
             tela_portal()
